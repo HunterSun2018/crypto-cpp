@@ -1,16 +1,16 @@
 
 TARGET = demo
 CXXFLAG = -std=c++20
-LIBS = -l crypto++ -l ssl -l crypto
-OBJS = ssl_aes.o
+LIBS = -l ssl -l crypto #-l crypto++ 
+OBJS = main.o
 
 $(TARGET) : $(OBJS)
-	g++ -g $(CXXFLAG) -o $(TARGET) $(OBJS) $(LIBS)
+	g++ $(CXXFLAG) -o $(TARGET) $(OBJS) $(LIBS)
 
 %.o : src/%.cpp
-	g++ -g $(CXXFLAG) -o $@ -c $<
+	g++ $(CXXFLAG) -o $@ -c $<
 
-ssl_aes.so : ssl_aes.hpp
+ssl_aes.o : src/ssl_aes.hpp
 
 clean :
-	rm -r $(TARGET) $(OBJS)
+	rm -rf $(TARGET) $(OBJS)

@@ -2,11 +2,16 @@
 #define AES_256_CBC_HPP
 #include <string_view>
 #include <string>
+#include <array>
+#include <random>
 #include <openssl/aes.h>
+#include <openssl/evp.h>
 
-// template <typename T>
-// concept Uint8Limit = std::is_same_v<uint8_t, std::iterator_traits<T>::value_type> ||
-//                      std::is_same_v<int8_t, std::iterator_traits<T>::value_type>;
+
+const size_t KEY_LEN = AES_BLOCK_SIZE * 3; // 32 bits password, 16 bits AES IV
+const size_t ITERATE_COUNT = 1'000'000;
+const uint8_t FLAG1 = 0xFF;
+const uint8_t FLAG2 = 0xEE;
 
 template <typename InputIterator, typename OutputIterator>
 void aes_256_cbc_encrypt(std::string_view password, InputIterator first, InputIterator last, OutputIterator result)
@@ -15,12 +20,31 @@ void aes_256_cbc_encrypt(std::string_view password, InputIterator first, InputIt
 
     //static_assert(std::iterator_traits<InputIterator>::value_type == uint8_t, "");
 
-    AES_KEY aes_key;
-    uint8_t iv[AES_BLOCK_SIZE] = {'0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'};
+    int ret = 0;
+    uint8_t salt[4] = {'s', 'a', 'l', 't'};
+    uint8_t key_out[KEY_LEN] = {0};
+    auto iv = key_out + AES_BLOCK_SIZE * 2;
 
-    int ret = AES_set_encrypt_key((const uint8_t *)password.data(), 256, &aes_key);
+    // Update salt with the first 4 bytes of content
+    *(size_t *)salt = random_device()();
+
+    ret = PKCS5_PBKDF2_HMAC(password.data(), password.length(), salt, sizeof(salt), ITERATE_COUNT, EVP_sha256(), KEY_LEN, key_out);
+    if (!ret)
+        __throw_runtime_error("aes_256_cbc_encrypt -> PKCS5_PBKDF2_HMAC error");
+
+    AES_KEY aes_key;
+    //uint8_t iv[AES_BLOCK_SIZE] = {0};
+
+    ret = AES_set_encrypt_key(key_out, 256, &aes_key);
     if (ret)
-        __throw_runtime_error("AES_set_encrypt_key error.");
+        __throw_runtime_error("aes_256_cbc_encrypt -> AES_set_encrypt_key error.");
+
+    // Write encryption flag
+    *result++ = FLAG1;
+    *result++ = FLAG2;
+
+    // Write salt to output interator
+    copy(begin(salt), end(salt), result);
 
     while (first != last)
     {
@@ -41,10 +65,28 @@ void aes_256_cbc_decrypt(std::string_view password, InputIterator first, InputIt
 {
     using namespace std;
 
-    AES_KEY aes_key;
-    uint8_t iv[AES_BLOCK_SIZE] = {'0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'};
+    int ret = 0;
+    uint8_t salt[4] = {'s', 'a', 'l', 't'};
+    uint8_t key_out[KEY_LEN] = {0};
+    auto iv = key_out + AES_BLOCK_SIZE * 2;
 
-    int ret = AES_set_decrypt_key((const uint8_t *)password.data(), 256, &aes_key);
+    // Verify 2 bytes of content header 
+    uint8_t flag_byte1 = *first++;
+    uint8_t flag_byte2 = *first++;
+    if (flag_byte1 != FLAG1 && flag_byte2 != FLAG2)
+        __throw_runtime_error("the input is not the encrypted content.");
+
+    // Update salt with the first 4 bytes of content
+    for (auto i = 0; i < 4; i++)
+        salt[i] = *first++;
+
+    ret = PKCS5_PBKDF2_HMAC(password.data(), password.length(), salt, sizeof(salt), ITERATE_COUNT, EVP_sha256(), KEY_LEN, key_out);
+    if (!ret)
+        __throw_runtime_error("PKCS5_PBKDF2_HMAC error.");
+
+    AES_KEY aes_key;
+
+    ret = AES_set_decrypt_key(key_out, 256, &aes_key);
     if (ret)
         __throw_runtime_error("AES_set_encrypt_key error.");
 
@@ -61,7 +103,5 @@ void aes_256_cbc_decrypt(std::string_view password, InputIterator first, InputIt
         copy(begin(out), end(out), result);
     }
 }
-
-//using ssl_aes_ptr = std::shared_ptr<Aes>;
 
 #endif
