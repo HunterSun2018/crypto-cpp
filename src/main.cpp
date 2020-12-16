@@ -5,6 +5,7 @@
 #include <vector>
 #include <iterator>
 #include "ssl_aes.hpp"
+#include "aes.hpp"
 
 using namespace std;
 
@@ -41,4 +42,12 @@ int main(int argc, char *argv[])
 	aes_256_cbc_decrypt(password, ifs_iterator(ifs), ifs_iterator(), ofs_iterator(ofs2));
 
 	return 0;
+}
+
+void test_aes()
+{
+	string input("hello world"), out;
+
+	ssl_aes::create("123456", 256, ssl_aes::ENCRYPT)
+		->encode(begin(input), end(input), back_inserter(out));
 }
