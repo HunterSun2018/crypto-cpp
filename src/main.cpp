@@ -8,6 +8,7 @@
 #include "aes.hpp"
 
 using namespace std;
+void test_aes();
 
 int main(int argc, char *argv[])
 {
@@ -26,7 +27,7 @@ int main(int argc, char *argv[])
 	cout << result.size() << ", " << strlen(result.c_str()) << endl;
 	result.resize(strlen(result.c_str()) + 1);
 
-	cout << result << endl;
+	// cout << result << endl;
 
 	using ofs_iterator = ostreambuf_iterator<char>;
 	using ifs_iterator = istreambuf_iterator<char>;
@@ -41,13 +42,16 @@ int main(int argc, char *argv[])
 	ofstream ofs2("result", ios::binary);
 	aes_256_cbc_decrypt(password, ifs_iterator(ifs), ifs_iterator(), ofs_iterator(ofs2));
 
+	test_aes();
+
 	return 0;
 }
 
 void test_aes()
 {
-	string input("hello world"), out;
+	string input("hello world");	
+	vector<uint8_t> output;
 
 	ssl_aes::create("123456", 256, ssl_aes::ENCRYPT)
-		->encode(begin(input), end(input), back_inserter(out));
+		->encode(begin(input), end(input), back_inserter(output));
 }
